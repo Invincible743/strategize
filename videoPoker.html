@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Video Poker Strategy Analyzer</title>
+<title>Video Poker Strategizer</title>
 
 <link rel="icon" href="icon4.png" sizes="512x512">
 
@@ -47,6 +47,7 @@ button.secondary:disabled{opacity:.4;cursor:not-allowed}
 <body>
 <div class="container">
 <h1>Video Poker Strategy Analyzer</h1>
+<h1>Probability > Intuition</h1>
 
 <div class="panel">
   <div class="card-inputs" id="inputs"></div>
@@ -55,7 +56,7 @@ button.secondary:disabled{opacity:.4;cursor:not-allowed}
 </div>
 
 <div id="results"></div>
-<button id="nextBtn" class="secondary" onclick="showNext()">Show next strategy</button>
+<button id="nextBtn" class="secondary" onclick="showNext()">Show Next Strategy</button>
 </div>
 
 <script>
@@ -63,15 +64,15 @@ const ranks=['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
 const suits=['♠','♣','♥','♦'];
 
 const HAND_VALUE={
-  'Royal Flush':250,
-  'Straight Flush':50,
-  'Four of a Kind':25,
-  'Full House':9,
-  'Flush':6,
-  'Straight':4,
-  'Three of a Kind':3,
-  'Two Pair':2,
-  'One Pair':1
+  'Royal Flush - 250':250,
+  'Straight Flush - 50':50,
+  'Four of a Kind - 25':25,
+  'Full House - 9':9,
+  'Flush - 6':6,
+  'Straight - 4':4,
+  'Three of a Kind - 3':3,
+  'Two Pair - 2':2,
+  'One Pair (> Jack) - 1':1
 };
 
 let hand=[], strategies=[], shown=0, lastKey='';
@@ -112,31 +113,41 @@ function fullDeck(){ return ranks.flatMap(r=>suits.map(s=>r+s)); }
   });
 })();
 
-/* EVALUATOR */
+/* EVALUATOR (JACKS OR BETTER) */
 function evaluate(cards){
   const r=cards.map(c=>c.slice(0,-1));
   const s=cards.map(c=>c.slice(-1));
   const counts={};
   r.forEach(x=>counts[x]=(counts[x]||0)+1);
+
   const vals=Object.values(counts).sort((a,b)=>b-a);
+  const pairs=Object.entries(counts).filter(([_,v])=>v===2).map(([k])=>k);
 
   const isFlush=new Set(s).size===1;
   const idx=r.map(x=>ranks.indexOf(x)).sort((a,b)=>a-b);
   const isStraight=idx.every((v,i)=>i===0||v===idx[i-1]+1)||idx.toString()==='0,1,2,3,12';
 
-  if(isStraight&&isFlush&&idx[4]===12) return 'Royal Flush';
-  if(isStraight&&isFlush) return 'Straight Flush';
-  if(vals[0]===4) return 'Four of a Kind';
-  if(vals[0]===3&&vals[1]===2) return 'Full House';
-  if(isFlush) return 'Flush';
-  if(isStraight) return 'Straight';
-  if(vals[0]===3) return 'Three of a Kind';
-  if(vals[0]===2&&vals[1]===2) return 'Two Pair';
-  if(vals[0]===2) return 'One Pair';
+  if(isStraight&&isFlush&&idx[4]===12) return 'Royal Flush - 250';
+  if(isStraight&&isFlush) return 'Straight Flush - 50';
+  if(vals[0]===4) return 'Four of a Kind - 25';
+  if(vals[0]===3&&vals[1]===2) return 'Full House - 9';
+  if(isFlush) return 'Flush - 6';
+  if(isStraight) return 'Straight - 4';
+  if(vals[0]===3) return 'Three of a Kind - 3';
+  if(vals[0]===2&&vals[1]===2) return 'Two Pair - 2';
+
+  if(vals[0]===2){
+    const pairRank=pairs[0];
+    if(ranks.indexOf(pairRank) >= ranks.indexOf('J')){
+      return 'One Pair (> Jack) - 1';
+    }
+    return 'High Card'; // low pair ignored
+  }
+
   return 'High Card';
 }
 
-/* ENGINE (EV BASED) */
+/* ENGINE */
 function analyze(){
   const key=hand.join(',');
   if(key===lastKey) return;
@@ -177,16 +188,10 @@ function analyze(){
       }
       draw(0,[]);
 
-      strategies.push({
-        held,
-        counts,
-        total,
-        ev:ev/total
-      });
+      strategies.push({held,counts,total,ev:ev/total});
     }
 
     strategies.sort((a,b)=>b.ev-a.ev);
-
     document.getElementById('calcText').style.display='none';
     showNext();
   },50);
@@ -200,7 +205,9 @@ function showNext(){
     btn.textContent="All Strategies Shown";
     return;
   }
-
+  const btn=document.getElementById('nextBtn');
+  btn.disabled=false;
+  btn.textContent="Show Next Strategy";
   const s=strategies[shown++];
   const d=document.createElement('div');
   d.className='strategy';
@@ -213,17 +220,6 @@ function showNext(){
   d.innerHTML=`
     <h3>Strategy ${shown}</h3>
     <div class="hold-text">Hold: ${s.held.join(', ')||'Nothing'}</div>
-
-    <div class="hand-row">
-      <div style="display:flex;gap:12px;align-items:center;">
-        <strong>Total Success</strong>
-        <div class="fraction">
-          <span>${s.total}</span>
-          <span>${s.total}</span>
-        </div>
-        <div class="percent">100.00%</div>
-      </div>
-    </div>
 
     ${rows.map(h=>`
       <div class="hand-row">
